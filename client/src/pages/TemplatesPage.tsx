@@ -1,14 +1,48 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Typography, Paper, Button, TextField, Grid, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Chip, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, Divider
+  Chip, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, Divider,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import WarningIcon from '@mui/icons-material/Warning'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { templatesApi } from '../services/api'
 import type { AmazonProductType } from '../types'
+
+const normalizeText = (text: string): string => {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+const checkFileMatch = (filename: string, productCode: string): 'match' | 'mismatch' => {
+  const normalizedFilename = normalizeText(filename)
+  const normalizedCode = normalizeText(productCode)
+  
+  if (normalizedFilename.includes(normalizedCode) || normalizedCode.includes(normalizedFilename)) {
+    return 'match'
+  }
+  
+  const codeWords = productCode.toLowerCase().split(/[_\s&]+/).filter(w => w.length > 2)
+  const matchingWords = codeWords.filter(word => normalizedFilename.includes(word))
+  
+  if (matchingWords.length >= Math.ceil(codeWords.length / 2)) {
+    return 'match'
+  }
+  
+  return 'mismatch'
+}
+
+interface PendingUpload {
+  file: File
+  productCode: string
+  isUpdate: boolean
+  matchStatus: 'match' | 'mismatch'
+}
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<AmazonProductType[]>([])
@@ -18,6 +52,8 @@ export default function TemplatesPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null)
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null)
 
   const loadTemplates = async () => {
     const data = await templatesApi.list()
@@ -28,22 +64,38 @@ export default function TemplatesPage() {
     loadTemplates()
   }, [])
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isUpdate: boolean = false) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, isUpdate: boolean) => {
     const file = event.target.files?.[0]
     const codeToUse = isUpdate ? selectedExistingCode : productCode
+    
+    setFileInputRef(event.target)
     
     if (!file || !codeToUse) {
       setError(isUpdate ? 'Please select a Product Type to update' : 'Please enter a product code before uploading')
       return
     }
     
+    const matchStatus = checkFileMatch(file.name, codeToUse)
+    
+    setPendingUpload({
+      file,
+      productCode: codeToUse,
+      isUpdate,
+      matchStatus
+    })
+  }
+
+  const handleConfirmUpload = async () => {
+    if (!pendingUpload) return
+    
     setUploading(true)
     setError(null)
     setSuccess(null)
+    setPendingUpload(null)
     
     try {
-      const result = await templatesApi.import(file, codeToUse)
-      const action = isUpdate ? 'Updated' : 'Imported'
+      const result = await templatesApi.import(pendingUpload.file, pendingUpload.productCode)
+      const action = pendingUpload.isUpdate ? 'Updated' : 'Imported'
       setSuccess(`${action} ${result.fields_imported} fields, ${result.keywords_imported} keywords, ${result.valid_values_imported} valid values`)
       setProductCode('')
       setSelectedExistingCode('')
@@ -53,9 +105,16 @@ export default function TemplatesPage() {
       setError(err.response?.data?.detail || 'Failed to import template')
     } finally {
       setUploading(false)
-      if (event.target) {
-        event.target.value = ''
+      if (fileInputRef) {
+        fileInputRef.value = ''
       }
+    }
+  }
+
+  const handleCancelUpload = () => {
+    setPendingUpload(null)
+    if (fileInputRef) {
+      fileInputRef.value = ''
     }
   }
 
@@ -99,7 +158,7 @@ export default function TemplatesPage() {
               disabled={uploading || !productCode}
             >
               Upload New Template
-              <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, false)} />
+              <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileSelect(e, false)} />
             </Button>
           </Grid>
         </Grid>
@@ -132,7 +191,7 @@ export default function TemplatesPage() {
                   disabled={uploading || !selectedExistingCode}
                 >
                   Upload Updated Template
-                  <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, true)} />
+                  <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileSelect(e, true)} />
                 </Button>
               </Grid>
             </Grid>
@@ -142,6 +201,46 @@ export default function TemplatesPage() {
         {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mt: 2 }}>{success}</Alert>}
       </Paper>
+
+      <Dialog open={pendingUpload !== null} onClose={handleCancelUpload}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {pendingUpload?.matchStatus === 'match' ? (
+            <CheckCircleIcon color="success" />
+          ) : (
+            <WarningIcon color="warning" />
+          )}
+          {pendingUpload?.matchStatus === 'match' ? 'Confirm Upload' : 'File Mismatch Warning'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingUpload?.matchStatus === 'match' ? (
+              <>
+                The file <strong>{pendingUpload?.file.name}</strong> appears to match 
+                the Product Type <strong>{pendingUpload?.productCode}</strong>.
+                <br /><br />
+                Do you want to proceed with the {pendingUpload?.isUpdate ? 'update' : 'import'}?
+              </>
+            ) : (
+              <>
+                The file <strong>{pendingUpload?.file.name}</strong> does not appear to match 
+                the Product Type <strong>{pendingUpload?.productCode}</strong>.
+                <br /><br />
+                Are you sure you want to use this file to {pendingUpload?.isUpdate ? 'update' : 'import'} this Product Type?
+              </>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelUpload}>Cancel</Button>
+          <Button 
+            onClick={handleConfirmUpload} 
+            variant="contained"
+            color={pendingUpload?.matchStatus === 'match' ? 'primary' : 'warning'}
+          >
+            {pendingUpload?.matchStatus === 'match' ? 'Proceed' : 'Yes, Use This File'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
