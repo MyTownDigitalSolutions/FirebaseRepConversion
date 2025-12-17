@@ -190,6 +190,9 @@ class TemplateService:
             default_values_df = pd.read_excel(excel_file, sheet_name="Default Values", header=None)
             excel_file.seek(0)
             
+            print(f"Default Values sheet found with {len(default_values_df)} rows")
+            print(f"Available fields in template: {list(field_name_to_db.keys())[:5]}...")
+            
             for row_idx in range(1, len(default_values_df)):
                 row = default_values_df.iloc[row_idx]
                 
@@ -202,10 +205,13 @@ class TemplateService:
                 field_name_str = str(field_name_col).strip()
                 
                 field = field_name_to_db.get(field_name_str)
+                match_type = "exact" if field else None
+                
                 if not field:
                     for stored_field_name in field_name_to_db.keys():
                         if field_name_str in stored_field_name or stored_field_name in field_name_str:
                             field = field_name_to_db[stored_field_name]
+                            match_type = "contains"
                             break
                     
                     if not field:
@@ -214,6 +220,7 @@ class TemplateService:
                             stored_base = stored_field_name.split('[')[0] if '[' in stored_field_name else stored_field_name
                             if base_name == stored_base:
                                 field = field_name_to_db[stored_field_name]
+                                match_type = "base_name"
                                 break
                 
                 if field:
@@ -221,6 +228,7 @@ class TemplateService:
                         default_value_str = str(default_value).strip()
                         field.custom_value = default_value_str
                         default_values_imported += 1
+                        print(f"Set default for '{field.field_name}' ({match_type}): {default_value_str[:50]}...")
                     
                     other_values = [str(v).strip() for v in row.iloc[3:] if pd.notna(v)]
                     for value in other_values:
@@ -230,7 +238,10 @@ class TemplateService:
                         )
                         self.db.add(field_value)
                         other_values_imported += 1
+                else:
+                    print(f"No match found for: '{field_name_str[:60]}...'")
             
+            print(f"Default values imported: {default_values_imported}, other values: {other_values_imported}")
             self.db.commit()
         except Exception as e:
             print(f"Default Values sheet not found or error parsing: {e}")
