@@ -184,31 +184,31 @@ class TemplateService:
         except Exception as e:
             print(f"Error parsing Valid Values sheet: {e}")
         
-        custom_values_imported = 0
+        default_values_imported = 0
         try:
-            custom_values_df = pd.read_excel(excel_file, sheet_name="Custom Values", header=None)
+            default_values_df = pd.read_excel(excel_file, sheet_name="Default Values", header=None)
             excel_file.seek(0)
             
-            for row_idx in range(len(custom_values_df)):
-                row = custom_values_df.iloc[row_idx]
+            for row_idx in range(len(default_values_df)):
+                row = default_values_df.iloc[row_idx]
                 
                 field_name = row.iloc[0] if len(row) > 0 and pd.notna(row.iloc[0]) else None
-                custom_value = row.iloc[1] if len(row) > 1 and pd.notna(row.iloc[1]) else None
+                default_value = row.iloc[1] if len(row) > 1 and pd.notna(row.iloc[1]) else None
                 
-                if not field_name or not custom_value:
+                if not field_name or not default_value:
                     continue
                 
                 field_name_str = str(field_name).strip()
-                custom_value_str = str(custom_value).strip()
+                default_value_str = str(default_value).strip()
                 
                 field = field_name_to_db.get(field_name_str)
                 if field:
-                    field.custom_value = custom_value_str
-                    custom_values_imported += 1
+                    field.custom_value = default_value_str
+                    default_values_imported += 1
             
             self.db.commit()
         except Exception as e:
-            print(f"Custom Values sheet not found or error parsing: {e}")
+            print(f"Default Values sheet not found or error parsing: {e}")
         
         self.db.commit()
         
