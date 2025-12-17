@@ -598,10 +598,15 @@ export default function TemplatesPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            {field.valid_values?.length > 0 
-                              ? `${field.valid_values.length} values`
-                              : 'Any'
-                            }
+                            {field.selected_value ? (
+                              <Chip label={field.selected_value} size="small" color="primary" />
+                            ) : field.valid_values?.length > 0 ? (
+                              <Typography variant="body2" color="text.secondary">
+                                {field.valid_values.length} values
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">Any</Typography>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

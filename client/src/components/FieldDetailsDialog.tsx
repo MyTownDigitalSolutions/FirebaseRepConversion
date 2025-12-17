@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
+import CheckIcon from '@mui/icons-material/Check'
 import type { ProductTypeField } from '../types'
 import { templatesApi } from '../services/api'
 
@@ -26,6 +27,7 @@ interface FieldDetailsDialogProps {
 
 export default function FieldDetailsDialog({ field, onClose, onUpdate }: FieldDetailsDialogProps) {
   const [validValues, setValidValues] = useState(field.valid_values)
+  const [selectedValue, setSelectedValue] = useState<string | undefined>(field.selected_value)
   const [newValue, setNewValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,13 +60,37 @@ export default function FieldDetailsDialog({ field, onClose, onUpdate }: FieldDe
     setSaving(true)
     setError(null)
     try {
+      const deletedValue = validValues.find(v => v.id === valueId)
       await templatesApi.deleteFieldValue(field.id, valueId)
       const newValidValues = validValues.filter(v => v.id !== valueId)
       setValidValues(newValidValues)
       setHasChanges(true)
-      onUpdate({ ...field, valid_values: newValidValues })
+      
+      let newSelectedValue = selectedValue
+      if (deletedValue && selectedValue === deletedValue.value) {
+        newSelectedValue = undefined
+        setSelectedValue(undefined)
+        await templatesApi.updateField(field.id, { selected_value: '' })
+      }
+      onUpdate({ ...field, valid_values: newValidValues, selected_value: newSelectedValue })
     } catch (err) {
       setError('Failed to delete value')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSelectValue = async (value: string) => {
+    const newSelected = selectedValue === value ? undefined : value
+    setSaving(true)
+    setError(null)
+    try {
+      await templatesApi.updateField(field.id, { selected_value: newSelected || '' })
+      setSelectedValue(newSelected)
+      setHasChanges(true)
+      onUpdate({ ...field, valid_values: validValues, selected_value: newSelected })
+    } catch (err) {
+      setError('Failed to set selected value')
     } finally {
       setSaving(false)
     }
@@ -116,7 +142,7 @@ export default function FieldDetailsDialog({ field, onClose, onUpdate }: FieldDe
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {validValues.length > 0 
-              ? 'These are the allowed values for this field. You can add or remove values as needed.'
+              ? 'Click a value to select it as the default. The selected value will be shown in the main grid.'
               : 'This field accepts any value (no restrictions). Add values to create a dropdown list.'}
           </Typography>
 
@@ -154,10 +180,14 @@ export default function FieldDetailsDialog({ field, onClose, onUpdate }: FieldDe
                   <Chip
                     key={value.id}
                     label={value.value}
+                    onClick={() => handleSelectValue(value.value)}
                     onDelete={() => handleDeleteValue(value.id)}
                     deleteIcon={<DeleteIcon />}
-                    variant="outlined"
+                    icon={selectedValue === value.value ? <CheckIcon /> : undefined}
+                    color={selectedValue === value.value ? 'primary' : 'default'}
+                    variant={selectedValue === value.value ? 'filled' : 'outlined'}
                     size="small"
+                    sx={{ cursor: 'pointer' }}
                   />
                 ))}
               </Box>

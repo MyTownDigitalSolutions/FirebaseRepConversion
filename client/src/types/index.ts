@@ -114,6 +114,7 @@ export interface ProductTypeField {
   required: boolean
   order_index: number
   description?: string
+  selected_value?: string
   valid_values: ProductTypeFieldValue[]
 }
 

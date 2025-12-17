@@ -16,6 +16,7 @@ class ProductTypeFieldResponse(BaseModel):
     required: bool = False
     order_index: int = 0
     description: Optional[str] = None
+    selected_value: Optional[str] = None
     valid_values: List[ProductTypeFieldValueResponse] = []
     
     class Config:
@@ -60,6 +61,7 @@ class EquipmentTypeProductTypeLinkResponse(BaseModel):
 
 class ProductTypeFieldUpdate(BaseModel):
     required: Optional[bool] = None
+    selected_value: Optional[str] = None
 
 class ProductTypeFieldValueCreate(BaseModel):
     value: str

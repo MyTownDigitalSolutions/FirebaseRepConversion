@@ -133,6 +133,8 @@ def update_field(field_id: int, update: ProductTypeFieldUpdate, db: Session = De
     
     if update.required is not None:
         field.required = update.required
+    if update.selected_value is not None:
+        field.selected_value = update.selected_value if update.selected_value != "" else None
     
     db.commit()
     db.refresh(field)

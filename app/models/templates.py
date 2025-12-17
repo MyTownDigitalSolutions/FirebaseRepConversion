@@ -46,6 +46,7 @@ class ProductTypeField(Base):
     required = Column(Boolean, default=False)
     order_index = Column(Integer, default=0)
     description = Column(Text, nullable=True)
+    selected_value = Column(String, nullable=True)
     
     product_type = relationship("AmazonProductType", back_populates="fields")
     valid_values = relationship("ProductTypeFieldValue", back_populates="field", cascade="all, delete-orphan")
