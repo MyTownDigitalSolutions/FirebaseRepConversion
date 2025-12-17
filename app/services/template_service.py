@@ -185,26 +185,51 @@ class TemplateService:
             print(f"Error parsing Valid Values sheet: {e}")
         
         default_values_imported = 0
+        other_values_imported = 0
         try:
             default_values_df = pd.read_excel(excel_file, sheet_name="Default Values", header=None)
             excel_file.seek(0)
             
-            for row_idx in range(len(default_values_df)):
+            for row_idx in range(1, len(default_values_df)):
                 row = default_values_df.iloc[row_idx]
                 
-                field_name = row.iloc[0] if len(row) > 0 and pd.notna(row.iloc[0]) else None
-                default_value = row.iloc[1] if len(row) > 1 and pd.notna(row.iloc[1]) else None
+                field_name_col = row.iloc[1] if len(row) > 1 and pd.notna(row.iloc[1]) else None
+                default_value = row.iloc[2] if len(row) > 2 and pd.notna(row.iloc[2]) else None
                 
-                if not field_name or not default_value:
+                if not field_name_col:
                     continue
                 
-                field_name_str = str(field_name).strip()
-                default_value_str = str(default_value).strip()
+                field_name_str = str(field_name_col).strip()
                 
                 field = field_name_to_db.get(field_name_str)
+                if not field:
+                    for stored_field_name in field_name_to_db.keys():
+                        if field_name_str in stored_field_name or stored_field_name in field_name_str:
+                            field = field_name_to_db[stored_field_name]
+                            break
+                    
+                    if not field:
+                        base_name = field_name_str.split('[')[0] if '[' in field_name_str else field_name_str
+                        for stored_field_name in field_name_to_db.keys():
+                            stored_base = stored_field_name.split('[')[0] if '[' in stored_field_name else stored_field_name
+                            if base_name == stored_base:
+                                field = field_name_to_db[stored_field_name]
+                                break
+                
                 if field:
-                    field.custom_value = default_value_str
-                    default_values_imported += 1
+                    if default_value:
+                        default_value_str = str(default_value).strip()
+                        field.custom_value = default_value_str
+                        default_values_imported += 1
+                    
+                    other_values = [str(v).strip() for v in row.iloc[3:] if pd.notna(v)]
+                    for value in other_values:
+                        field_value = ProductTypeFieldValue(
+                            product_type_field_id=field.id,
+                            value=value
+                        )
+                        self.db.add(field_value)
+                        other_values_imported += 1
             
             self.db.commit()
         except Exception as e:
