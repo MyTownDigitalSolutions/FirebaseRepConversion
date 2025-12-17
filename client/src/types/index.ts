@@ -115,6 +115,7 @@ export interface ProductTypeField {
   order_index: number
   description?: string
   selected_value?: string
+  custom_value?: string
   valid_values: ProductTypeFieldValue[]
 }
 

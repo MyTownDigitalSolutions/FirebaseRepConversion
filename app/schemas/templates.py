@@ -17,6 +17,7 @@ class ProductTypeFieldResponse(BaseModel):
     order_index: int = 0
     description: Optional[str] = None
     selected_value: Optional[str] = None
+    custom_value: Optional[str] = None
     valid_values: List[ProductTypeFieldValueResponse] = []
     
     class Config:
