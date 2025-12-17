@@ -63,6 +63,8 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
     
     header_rows = product_type.header_rows or []
     
+    equipment_type = db.query(EquipmentType).filter(EquipmentType.id == equipment_type_id).first()
+    
     rows = []
     for model in models:
         series = db.query(Series).filter(Series.id == model.series_id).first()
@@ -70,7 +72,7 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
         
         row_data: List[str | None] = []
         for field in fields:
-            value = get_field_value(field, model, series, manufacturer)
+            value = get_field_value(field, model, series, manufacturer, equipment_type)
             row_data.append(value)
         
         rows.append(ExportRowData(
@@ -85,8 +87,19 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
         template_code=product_type.code
     )
 
-def get_field_value(field: ProductTypeField, model: Model, series, manufacturer) -> str | None:
+def substitute_placeholders(value: str, model: Model, series, manufacturer, equipment_type) -> str:
+    result = value
+    result = result.replace('[Manufacturer_Name]', manufacturer.name if manufacturer else '')
+    result = result.replace('[Series_Name]', series.name if series else '')
+    result = result.replace('[Model_Name]', model.name if model else '')
+    result = result.replace('[Equipment_Type]', equipment_type.name if equipment_type else '')
+    return result
+
+def get_field_value(field: ProductTypeField, model: Model, series, manufacturer, equipment_type=None) -> str | None:
     field_name_lower = field.field_name.lower()
+    
+    if field.custom_value:
+        return substitute_placeholders(field.custom_value, model, series, manufacturer, equipment_type)
     
     if field.selected_value:
         return field.selected_value
