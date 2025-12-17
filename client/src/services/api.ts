@@ -109,4 +109,21 @@ export const enumsApi = {
   marketplaces: () => api.get<EnumValue[]>('/enums/marketplaces').then(r => r.data),
 }
 
+export interface ExportRowData {
+  model_id: number
+  model_name: string
+  data: (string | null)[]
+}
+
+export interface ExportPreviewResponse {
+  headers: (string | null)[][]
+  rows: ExportRowData[]
+  template_code: string
+}
+
+export const exportApi = {
+  generatePreview: (modelIds: number[]) => 
+    api.post<ExportPreviewResponse>('/export/preview', { model_ids: modelIds }).then(r => r.data),
+}
+
 export default api

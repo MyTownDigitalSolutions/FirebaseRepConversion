@@ -13,6 +13,7 @@ import PeopleIcon from '@mui/icons-material/People'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import CalculateIcon from '@mui/icons-material/Calculate'
 import DescriptionIcon from '@mui/icons-material/Description'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 
 const drawerWidth = 240
 
@@ -25,6 +26,7 @@ const menuItems = [
   { text: 'Orders', icon: <ShoppingCartIcon />, path: '/orders' },
   { text: 'Pricing Calculator', icon: <CalculateIcon />, path: '/pricing' },
   { text: 'Templates', icon: <DescriptionIcon />, path: '/templates' },
+  { text: 'Export', icon: <FileDownloadIcon />, path: '/export' },
 ]
 
 interface LayoutProps {
