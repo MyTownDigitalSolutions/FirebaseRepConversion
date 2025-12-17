@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   Box, Typography, Paper, Button, TextField, Grid, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Chip, Alert, CircularProgress
+  Chip, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, Divider
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { templatesApi } from '../services/api'
 import type { AmazonProductType } from '../types'
 
@@ -13,6 +14,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<AmazonProductType[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<AmazonProductType | null>(null)
   const [productCode, setProductCode] = useState('')
+  const [selectedExistingCode, setSelectedExistingCode] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -26,10 +28,12 @@ export default function TemplatesPage() {
     loadTemplates()
   }, [])
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isUpdate: boolean = false) => {
     const file = event.target.files?.[0]
-    if (!file || !productCode) {
-      setError('Please enter a product code before uploading')
+    const codeToUse = isUpdate ? selectedExistingCode : productCode
+    
+    if (!file || !codeToUse) {
+      setError(isUpdate ? 'Please select a Product Type to update' : 'Please enter a product code before uploading')
       return
     }
     
@@ -38,15 +42,20 @@ export default function TemplatesPage() {
     setSuccess(null)
     
     try {
-      const result = await templatesApi.import(file, productCode)
-      setSuccess(`Imported ${result.fields_imported} fields, ${result.keywords_imported} keywords, ${result.valid_values_imported} valid values`)
+      const result = await templatesApi.import(file, codeToUse)
+      const action = isUpdate ? 'Updated' : 'Imported'
+      setSuccess(`${action} ${result.fields_imported} fields, ${result.keywords_imported} keywords, ${result.valid_values_imported} valid values`)
       setProductCode('')
+      setSelectedExistingCode('')
       loadTemplates()
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } }
       setError(err.response?.data?.detail || 'Failed to import template')
     } finally {
       setUploading(false)
+      if (event.target) {
+        event.target.value = ''
+      }
     }
   }
 
@@ -70,12 +79,12 @@ export default function TemplatesPage() {
       <Typography variant="h4" gutterBottom>Amazon Templates</Typography>
 
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>Import Template</Typography>
+        <Typography variant="h6" gutterBottom>Import New Product Type</Typography>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="Product Code"
+              label="Product Type Code"
               value={productCode}
               onChange={(e) => setProductCode(e.target.value)}
               placeholder="e.g., CARRIER_BAG_CASE"
@@ -89,11 +98,46 @@ export default function TemplatesPage() {
               startIcon={uploading ? <CircularProgress size={20} /> : <UploadFileIcon />}
               disabled={uploading || !productCode}
             >
-              Upload XLSX File
-              <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileUpload} />
+              Upload New Template
+              <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, false)} />
             </Button>
           </Grid>
         </Grid>
+        
+        {templates.length > 0 && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="h6" gutterBottom>Update Existing Product Type</Typography>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Select Product Type</InputLabel>
+                  <Select
+                    value={selectedExistingCode}
+                    label="Select Product Type"
+                    onChange={(e) => setSelectedExistingCode(e.target.value)}
+                  >
+                    {templates.map((t) => (
+                      <MenuItem key={t.id} value={t.code}>{t.code}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  color="warning"
+                  startIcon={uploading ? <CircularProgress size={20} /> : <RefreshIcon />}
+                  disabled={uploading || !selectedExistingCode}
+                >
+                  Upload Updated Template
+                  <input type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, true)} />
+                </Button>
+              </Grid>
+            </Grid>
+          </>
+        )}
         
         {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mt: 2 }}>{success}</Alert>}
