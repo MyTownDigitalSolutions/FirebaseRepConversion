@@ -116,6 +116,7 @@ export interface AmazonProductType {
   code: string
   name?: string
   description?: string
+  header_rows?: (string | null)[][]
   keywords: { id: number; keyword: string }[]
   fields: ProductTypeField[]
 }

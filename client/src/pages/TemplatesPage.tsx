@@ -12,8 +12,89 @@ import WarningIcon from '@mui/icons-material/Warning'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LinkIcon from '@mui/icons-material/Link'
 import AddIcon from '@mui/icons-material/Add'
+import PreviewIcon from '@mui/icons-material/Preview'
+import CloseIcon from '@mui/icons-material/Close'
 import { templatesApi, equipmentTypesApi, type EquipmentTypeProductTypeLink } from '../services/api'
 import type { AmazonProductType, EquipmentType } from '../types'
+
+const rowStyles: Record<number, React.CSSProperties> = {
+  0: { backgroundColor: '#1976d2', color: 'white', fontWeight: 'bold', fontSize: '11px' },
+  1: { backgroundColor: '#2196f3', color: 'white', fontSize: '11px' },
+  2: { backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold', fontSize: '11px' },
+  3: { backgroundColor: '#8bc34a', color: 'black', fontWeight: 'bold', fontSize: '11px' },
+  4: { backgroundColor: '#c8e6c9', color: 'black', fontSize: '10px' },
+  5: { backgroundColor: '#fff9c4', color: 'black', fontStyle: 'italic', fontSize: '10px' },
+}
+
+interface TemplatePreviewProps {
+  template: AmazonProductType
+  onClose: () => void
+}
+
+function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
+  const headerRows = template.header_rows || []
+  const maxCols = Math.max(...headerRows.map(r => r?.length || 0), template.fields?.length || 0)
+  
+  if (headerRows.length === 0) {
+    return (
+      <Dialog open onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle>Template Preview - {template.code}</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning">No header rows available for this template. Try re-importing the template.</Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    )
+  }
+  
+  return (
+    <Dialog open onClose={onClose} maxWidth={false} fullWidth PaperProps={{ sx: { maxWidth: '95vw', height: '80vh' } }}>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Amazon Export Template Preview - {template.code}</span>
+        <IconButton onClick={onClose}><CloseIcon /></IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(80vh - 100px)' }}>
+          <Table size="small" sx={{ minWidth: maxCols * 140, tableLayout: 'fixed' }}>
+            <TableBody>
+              {headerRows.map((row, rowIdx) => (
+                <TableRow key={rowIdx}>
+                  {Array.from({ length: maxCols }).map((_, colIdx) => (
+                    <TableCell
+                      key={colIdx}
+                      sx={{
+                        ...rowStyles[rowIdx],
+                        border: '1px solid #ccc',
+                        padding: '4px 8px',
+                        width: 140,
+                        minWidth: 140,
+                        maxWidth: 140,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={row?.[colIdx] || ''}
+                    >
+                      {row?.[colIdx] || ''}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+        <Box sx={{ p: 2, borderTop: '1px solid #ccc', backgroundColor: '#f5f5f5' }}>
+          <Typography variant="body2" color="text.secondary">
+            This preview shows the first 6 rows of the Amazon export template. Row 6 contains example data.
+            The actual export will include your product data starting from row 7.
+          </Typography>
+        </Box>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const normalizeText = (text: string): string => {
   return text
@@ -61,6 +142,7 @@ export default function TemplatesPage() {
   const [equipmentTypeLinks, setEquipmentTypeLinks] = useState<EquipmentTypeProductTypeLink[]>([])
   const [selectedEquipmentTypeId, setSelectedEquipmentTypeId] = useState<number | ''>('')
   const [selectedProductTypeId, setSelectedProductTypeId] = useState<number | ''>('')
+  const [showPreview, setShowPreview] = useState(false)
 
   const loadTemplates = async () => {
     const data = await templatesApi.list()
@@ -429,10 +511,22 @@ export default function TemplatesPage() {
 
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Template Fields
-              {selectedTemplate && ` - ${selectedTemplate.code}`}
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Template Fields
+                {selectedTemplate && ` - ${selectedTemplate.code}`}
+              </Typography>
+              {selectedTemplate && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PreviewIcon />}
+                  onClick={() => setShowPreview(true)}
+                >
+                  Preview Export
+                </Button>
+              )}
+            </Box>
             
             {selectedTemplate ? (
               <Box>
@@ -489,6 +583,13 @@ export default function TemplatesPage() {
           </Paper>
         </Grid>
       </Grid>
+      
+      {showPreview && selectedTemplate && (
+        <TemplatePreview 
+          template={selectedTemplate} 
+          onClose={() => setShowPreview(false)} 
+        />
+      )}
     </Box>
   )
 }
