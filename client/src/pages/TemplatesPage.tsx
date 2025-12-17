@@ -551,75 +551,101 @@ export default function TemplatesPage() {
                   </Accordion>
                 )}
                 
-                <TableContainer sx={{ maxHeight: 400 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Field Name</TableCell>
-                        <TableCell>Group</TableCell>
-                        <TableCell>Required</TableCell>
-                        <TableCell>Valid Values</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedTemplate.fields?.map((field) => (
-                        <TableRow 
-                          key={field.id}
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedField(field)}
+                <Box sx={{ maxHeight: 500, overflowY: 'auto' }}>
+                  {(() => {
+                    const groupedFields = selectedTemplate.fields?.reduce((acc, field) => {
+                      const group = field.attribute_group || 'Other'
+                      if (!acc[group]) acc[group] = []
+                      acc[group].push(field)
+                      return acc
+                    }, {} as Record<string, typeof selectedTemplate.fields>)
+                    
+                    const groups = Object.keys(groupedFields || {})
+                    
+                    return groups.map((groupName) => (
+                      <Accordion key={groupName} defaultExpanded={false} sx={{ '&:before': { display: 'none' } }}>
+                        <AccordionSummary 
+                          expandIcon={<ExpandMoreIcon />}
+                          sx={{ 
+                            backgroundColor: 'action.hover',
+                            '&:hover': { backgroundColor: 'action.selected' }
+                          }}
                         >
-                          <TableCell>{field.field_name}</TableCell>
-                          <TableCell>{field.attribute_group || '-'}</TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Switch
-                              size="small"
-                              checked={field.required}
-                              onChange={async (e) => {
-                                const newRequired = e.target.checked
-                                try {
-                                  const updated = await templatesApi.updateField(field.id, { required: newRequired })
-                                  const updatedField = { ...field, required: updated.required }
-                                  setSelectedTemplate({
-                                    ...selectedTemplate,
-                                    fields: selectedTemplate.fields.map(f => 
-                                      f.id === field.id ? updatedField : f
-                                    )
-                                  })
-                                  setTemplates(templates.map(t => 
-                                    t.id === selectedTemplate.id 
-                                      ? { ...t, fields: t.fields.map(f => f.id === field.id ? updatedField : f) }
-                                      : t
-                                  ))
-                                } catch (err) {
-                                  console.error('Failed to update required status', err)
-                                }
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {field.selected_value ? (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Chip label={field.selected_value} size="small" color="primary" />
-                                {field.valid_values?.length > 0 && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    ({field.valid_values.length})
-                                  </Typography>
-                                )}
-                              </Box>
-                            ) : field.valid_values?.length > 0 ? (
-                              <Typography variant="body2" color="text.secondary">
-                                {field.valid_values.length} values
-                              </Typography>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">Any</Typography>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
+                            {groupName} ({groupedFields![groupName].length})
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ p: 0 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Field Name</TableCell>
+                                <TableCell width={80}>Required</TableCell>
+                                <TableCell>Selected Value</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {groupedFields![groupName].map((field) => (
+                                <TableRow 
+                                  key={field.id}
+                                  hover
+                                  sx={{ cursor: 'pointer' }}
+                                  onClick={() => setSelectedField(field)}
+                                >
+                                  <TableCell>{field.field_name}</TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <Switch
+                                      size="small"
+                                      checked={field.required}
+                                      onChange={async (e) => {
+                                        const newRequired = e.target.checked
+                                        try {
+                                          const updated = await templatesApi.updateField(field.id, { required: newRequired })
+                                          const updatedField = { ...field, required: updated.required }
+                                          setSelectedTemplate({
+                                            ...selectedTemplate,
+                                            fields: selectedTemplate.fields.map(f => 
+                                              f.id === field.id ? updatedField : f
+                                            )
+                                          })
+                                          setTemplates(templates.map(t => 
+                                            t.id === selectedTemplate.id 
+                                              ? { ...t, fields: t.fields.map(f => f.id === field.id ? updatedField : f) }
+                                              : t
+                                          ))
+                                        } catch (err) {
+                                          console.error('Failed to update required status', err)
+                                        }
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    {field.selected_value ? (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Chip label={field.selected_value} size="small" color="primary" />
+                                        {field.valid_values?.length > 0 && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            ({field.valid_values.length})
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    ) : field.valid_values?.length > 0 ? (
+                                      <Typography variant="body2" color="text.secondary">
+                                        {field.valid_values.length} values
+                                      </Typography>
+                                    ) : (
+                                      <Typography variant="body2" color="text.secondary">Any</Typography>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))
+                  })()}
+                </Box>
               </Box>
             ) : (
               <Typography color="text.secondary">
