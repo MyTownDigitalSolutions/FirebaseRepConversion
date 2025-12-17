@@ -2,7 +2,7 @@ import axios from 'axios'
 import type {
   Manufacturer, Series, EquipmentType, Model, Material,
   Customer, Order, PricingOption, PricingResult, AmazonProductType,
-  EnumValue
+  EnumValue, ProductTypeField, ProductTypeFieldValue
 } from '../types'
 
 const api = axios.create({
@@ -94,6 +94,12 @@ export const templatesApi = {
   createEquipmentTypeLink: (equipmentTypeId: number, productTypeId: number) => 
     api.post<EquipmentTypeProductTypeLink>('/templates/equipment-type-links', { equipment_type_id: equipmentTypeId, product_type_id: productTypeId }).then(r => r.data),
   deleteEquipmentTypeLink: (linkId: number) => api.delete(`/templates/equipment-type-links/${linkId}`),
+  updateField: (fieldId: number, data: { required?: boolean }) => 
+    api.patch<ProductTypeField>(`/templates/fields/${fieldId}`, data).then(r => r.data),
+  addFieldValue: (fieldId: number, value: string) => 
+    api.post<ProductTypeFieldValue>(`/templates/fields/${fieldId}/values`, { value }).then(r => r.data),
+  deleteFieldValue: (fieldId: number, valueId: number) => 
+    api.delete(`/templates/fields/${fieldId}/values/${valueId}`),
 }
 
 export const enumsApi = {

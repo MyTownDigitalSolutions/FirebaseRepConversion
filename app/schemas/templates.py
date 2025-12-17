@@ -57,3 +57,9 @@ class EquipmentTypeProductTypeLinkResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class ProductTypeFieldUpdate(BaseModel):
+    required: Optional[bool] = None
+
+class ProductTypeFieldValueCreate(BaseModel):
+    value: str

@@ -101,14 +101,20 @@ export interface PricingResult {
   total: number
 }
 
+export interface ProductTypeFieldValue {
+  id: number
+  value: string
+}
+
 export interface ProductTypeField {
   id: number
   field_name: string
+  display_name?: string
   attribute_group?: string
   required: boolean
   order_index: number
   description?: string
-  valid_values: { id: number; value: string }[]
+  valid_values: ProductTypeFieldValue[]
 }
 
 export interface AmazonProductType {

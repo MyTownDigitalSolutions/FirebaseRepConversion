@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from app.models.core import EquipmentType
-from app.models.templates import AmazonProductType, ProductTypeField, EquipmentTypeProductType
+from app.models.templates import AmazonProductType, ProductTypeField, EquipmentTypeProductType, ProductTypeFieldValue
 from app.schemas.templates import (
     AmazonProductTypeResponse, ProductTypeFieldResponse, TemplateImportResponse,
-    EquipmentTypeProductTypeLinkCreate, EquipmentTypeProductTypeLinkResponse
+    EquipmentTypeProductTypeLinkCreate, EquipmentTypeProductTypeLinkResponse,
+    ProductTypeFieldUpdate, ProductTypeFieldValueCreate, ProductTypeFieldValueResponse
 )
 from app.services.template_service import TemplateService
 
@@ -116,3 +117,57 @@ def delete_product_type(product_code: str, db: Session = Depends(get_db)):
     db.delete(product_type)
     db.commit()
     return {"message": "Product type deleted"}
+
+@router.get("/fields/{field_id}", response_model=ProductTypeFieldResponse)
+def get_field(field_id: int, db: Session = Depends(get_db)):
+    field = db.query(ProductTypeField).filter(ProductTypeField.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    return field
+
+@router.patch("/fields/{field_id}", response_model=ProductTypeFieldResponse)
+def update_field(field_id: int, update: ProductTypeFieldUpdate, db: Session = Depends(get_db)):
+    field = db.query(ProductTypeField).filter(ProductTypeField.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    
+    if update.required is not None:
+        field.required = update.required
+    
+    db.commit()
+    db.refresh(field)
+    return field
+
+@router.post("/fields/{field_id}/values", response_model=ProductTypeFieldValueResponse)
+def add_field_value(field_id: int, value: ProductTypeFieldValueCreate, db: Session = Depends(get_db)):
+    field = db.query(ProductTypeField).filter(ProductTypeField.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    
+    existing = db.query(ProductTypeFieldValue).filter(
+        ProductTypeFieldValue.product_type_field_id == field_id,
+        ProductTypeFieldValue.value == value.value
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Value already exists")
+    
+    new_value = ProductTypeFieldValue(
+        product_type_field_id=field_id,
+        value=value.value
+    )
+    db.add(new_value)
+    db.commit()
+    db.refresh(new_value)
+    return new_value
+
+@router.delete("/fields/{field_id}/values/{value_id}")
+def delete_field_value(field_id: int, value_id: int, db: Session = Depends(get_db)):
+    value = db.query(ProductTypeFieldValue).filter(
+        ProductTypeFieldValue.id == value_id,
+        ProductTypeFieldValue.product_type_field_id == field_id
+    ).first()
+    if not value:
+        raise HTTPException(status_code=404, detail="Value not found")
+    db.delete(value)
+    db.commit()
+    return {"message": "Value deleted"}

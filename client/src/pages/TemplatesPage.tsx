@@ -15,7 +15,8 @@ import AddIcon from '@mui/icons-material/Add'
 import PreviewIcon from '@mui/icons-material/Preview'
 import CloseIcon from '@mui/icons-material/Close'
 import { templatesApi, equipmentTypesApi, type EquipmentTypeProductTypeLink } from '../services/api'
-import type { AmazonProductType, EquipmentType } from '../types'
+import type { AmazonProductType, EquipmentType, ProductTypeField } from '../types'
+import FieldDetailsDialog from '../components/FieldDetailsDialog'
 
 const rowStyles: Record<number, React.CSSProperties> = {
   0: { backgroundColor: '#1976d2', color: 'white', fontWeight: 'bold', fontSize: '11px' },
@@ -143,6 +144,7 @@ export default function TemplatesPage() {
   const [selectedEquipmentTypeId, setSelectedEquipmentTypeId] = useState<number | ''>('')
   const [selectedProductTypeId, setSelectedProductTypeId] = useState<number | ''>('')
   const [showPreview, setShowPreview] = useState(false)
+  const [selectedField, setSelectedField] = useState<ProductTypeField | null>(null)
 
   const loadTemplates = async () => {
     const data = await templatesApi.list()
@@ -553,7 +555,12 @@ export default function TemplatesPage() {
                     </TableHead>
                     <TableBody>
                       {selectedTemplate.fields?.map((field) => (
-                        <TableRow key={field.id}>
+                        <TableRow 
+                          key={field.id}
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedField(field)}
+                        >
                           <TableCell>{field.field_name}</TableCell>
                           <TableCell>{field.attribute_group || '-'}</TableCell>
                           <TableCell>
@@ -588,6 +595,27 @@ export default function TemplatesPage() {
         <TemplatePreview 
           template={selectedTemplate} 
           onClose={() => setShowPreview(false)} 
+        />
+      )}
+      
+      {selectedField && selectedTemplate && (
+        <FieldDetailsDialog
+          field={selectedField}
+          onClose={() => setSelectedField(null)}
+          onUpdate={(updatedField) => {
+            setSelectedTemplate({
+              ...selectedTemplate,
+              fields: selectedTemplate.fields.map(f => 
+                f.id === updatedField.id ? updatedField : f
+              )
+            })
+            setTemplates(templates.map(t => 
+              t.id === selectedTemplate.id 
+                ? { ...t, fields: t.fields.map(f => f.id === updatedField.id ? updatedField : f) }
+                : t
+            ))
+            setSelectedField(updatedField)
+          }}
         />
       )}
     </Box>
