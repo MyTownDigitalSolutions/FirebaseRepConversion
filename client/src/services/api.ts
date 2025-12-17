@@ -122,8 +122,8 @@ export interface ExportPreviewResponse {
 }
 
 export const exportApi = {
-  generatePreview: (modelIds: number[]) => 
-    api.post<ExportPreviewResponse>('/export/preview', { model_ids: modelIds }).then(r => r.data),
+  generatePreview: (modelIds: number[], listingType: 'individual' | 'parent_child' = 'individual') => 
+    api.post<ExportPreviewResponse>('/export/preview', { model_ids: modelIds, listing_type: listingType }).then(r => r.data),
 }
 
 export default api

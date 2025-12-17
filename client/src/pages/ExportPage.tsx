@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Button, Grid, Checkbox,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions
+  Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+  ToggleButton, ToggleButtonGroup, Tooltip
 } from '@mui/material'
 import PreviewIcon from '@mui/icons-material/Preview'
 import CloseIcon from '@mui/icons-material/Close'
@@ -50,6 +51,7 @@ export default function ExportPage() {
   
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewData, setPreviewData] = useState<ExportPreviewData | null>(null)
+  const [listingType, setListingType] = useState<'individual' | 'parent_child'>('individual')
 
   useEffect(() => {
     loadData()
@@ -135,7 +137,7 @@ export default function ExportPage() {
       setGenerating(true)
       setError(null)
       const modelIds = Array.from(selectedModels)
-      const preview = await exportApi.generatePreview(modelIds)
+      const preview = await exportApi.generatePreview(modelIds, listingType)
       setPreviewData(preview)
       setPreviewOpen(true)
     } catch (err: any) {
@@ -231,6 +233,34 @@ export default function ExportPage() {
             </Box>
           </Grid>
         </Grid>
+        
+        <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #eee' }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Listing Type
+          </Typography>
+          <ToggleButtonGroup
+            value={listingType}
+            exclusive
+            onChange={(_, value) => value && setListingType(value)}
+            size="small"
+          >
+            <ToggleButton value="individual">
+              <Tooltip title="Each model gets its own unique SKU in contribution_sku">
+                <span>Individual / Standard</span>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="parent_child" disabled>
+              <Tooltip title="Parent/Child listing (Coming Soon)">
+                <span>Parent / Child</span>
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+            {listingType === 'individual' 
+              ? 'Each model will use its Parent SKU as the contribution_sku value'
+              : 'Parent/Child listing support coming soon'}
+          </Typography>
+        </Box>
       </Paper>
 
       <Paper sx={{ p: 2 }}>

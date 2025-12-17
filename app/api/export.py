@@ -10,6 +10,7 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 class ExportPreviewRequest(BaseModel):
     model_ids: List[int]
+    listing_type: str = "individual"  # "individual" or "parent_child"
 
 class ExportRowData(BaseModel):
     model_id: int
@@ -72,7 +73,7 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
         
         row_data: List[str | None] = []
         for field in fields:
-            value = get_field_value(field, model, series, manufacturer, equipment_type)
+            value = get_field_value(field, model, series, manufacturer, equipment_type, request.listing_type)
             row_data.append(value)
         
         rows.append(ExportRowData(
@@ -95,8 +96,12 @@ def substitute_placeholders(value: str, model: Model, series, manufacturer, equi
     result = result.replace('[Equipment_Type]', equipment_type.name if equipment_type else '')
     return result
 
-def get_field_value(field: ProductTypeField, model: Model, series, manufacturer, equipment_type=None) -> str | None:
+def get_field_value(field: ProductTypeField, model: Model, series, manufacturer, equipment_type=None, listing_type: str = "individual") -> str | None:
     field_name_lower = field.field_name.lower()
+    
+    # Handle contribution_sku for individual listings - use parent_sku
+    if 'contribution_sku' in field_name_lower and listing_type == 'individual':
+        return model.parent_sku if model.parent_sku else None
     
     if field.custom_value:
         return substitute_placeholders(field.custom_value, model, series, manufacturer, equipment_type)
