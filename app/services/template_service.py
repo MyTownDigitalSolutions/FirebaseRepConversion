@@ -345,6 +345,8 @@ class TemplateService:
                 for ov in other_values_by_field[field_name]:
                     if ov not in all_values:
                         all_values.append(ov)
+            if default_value and default_value not in all_values:
+                all_values.insert(0, default_value)
             
             for value in all_values:
                 field_value = ProductTypeFieldValue(
