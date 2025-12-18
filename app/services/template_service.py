@@ -324,9 +324,12 @@ class TemplateService:
             
             prev_settings = existing_field_settings.get(field_name, {})
             
-            custom_value = prev_settings.get('custom_value')
-            if not custom_value and default_value:
+            # Always update custom_value with new default from template
+            # This ensures re-uploaded templates update defaults properly
+            if default_value:
                 custom_value = default_value
+            else:
+                custom_value = prev_settings.get('custom_value')
             
             field = ProductTypeField(
                 product_type_id=product_type.id,

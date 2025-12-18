@@ -698,7 +698,16 @@ export default function TemplatesPage() {
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    {field.custom_value ? (
+                                    {field.selected_value ? (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Chip label={field.selected_value} size="small" color="primary" />
+                                        {field.valid_values?.length > 0 && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            ({field.valid_values.length})
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    ) : field.custom_value ? (
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                         <Chip 
                                           label={field.custom_value.length > 30 ? field.custom_value.substring(0, 30) + '...' : field.custom_value} 
@@ -706,15 +715,6 @@ export default function TemplatesPage() {
                                           color="success"
                                           title={field.custom_value}
                                         />
-                                        {field.valid_values?.length > 0 && (
-                                          <Typography variant="body2" color="text.secondary">
-                                            ({field.valid_values.length})
-                                          </Typography>
-                                        )}
-                                      </Box>
-                                    ) : field.selected_value ? (
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <Chip label={field.selected_value} size="small" color="primary" />
                                         {field.valid_values?.length > 0 && (
                                           <Typography variant="body2" color="text.secondary">
                                             ({field.valid_values.length})
