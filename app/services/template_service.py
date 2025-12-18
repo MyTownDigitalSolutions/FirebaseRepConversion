@@ -62,16 +62,35 @@ class TemplateService:
             dd_df = pd.read_excel(excel_file, sheet_name="Data Definitions", header=None)
             excel_file.seek(0)
             
+            headers = dd_df.iloc[1].tolist() if len(dd_df) > 1 else []
+            other_value_headers = [str(h) if pd.notna(h) else None for h in headers[3:]]
+            
+            current_group = None
             for row_idx in range(2, len(dd_df)):
                 row = dd_df.iloc[row_idx]
-                group_name = str(row.iloc[0]) if pd.notna(row.iloc[0]) else None
-                field_name = str(row.iloc[1]) if len(row) > 1 and pd.notna(row.iloc[1]) else None
-                display_name = str(row.iloc[2]) if len(row) > 2 and pd.notna(row.iloc[2]) else None
                 
-                if field_name and field_name.strip():
-                    data_definitions[field_name] = {
-                        "group_name": group_name,
-                        "display_name": display_name
+                col_a_value = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else None
+                col_b_field_name = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else None
+                col_c_default_value = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else None
+                
+                if col_a_value and not col_b_field_name:
+                    current_group = col_a_value
+                    continue
+                
+                if col_b_field_name:
+                    other_values = []
+                    for idx, val in enumerate(row.iloc[3:]):
+                        if pd.notna(val):
+                            header_name = other_value_headers[idx] if idx < len(other_value_headers) else None
+                            other_values.append({
+                                "header": header_name,
+                                "value": str(val).strip()
+                            })
+                    
+                    data_definitions[col_b_field_name] = {
+                        "group_name": current_group,
+                        "default_value": col_c_default_value,
+                        "other_values": other_values
                     }
         except Exception as e:
             print(f"Error parsing Data Definitions sheet: {e}")
@@ -120,10 +139,15 @@ class TemplateService:
         for field_name, template_info in template_field_order.items():
             dd_info = data_definitions.get(field_name, {})
             
-            display_name = dd_info.get("display_name") or template_info.get("display_name_from_template")
+            display_name = template_info.get("display_name_from_template")
             group_name = dd_info.get("group_name") or template_info.get("current_group")
+            default_value_from_dd = dd_info.get("default_value")
             
             prev_settings = existing_field_settings.get(field_name, {})
+            
+            custom_value = prev_settings.get('custom_value')
+            if not custom_value and default_value_from_dd:
+                custom_value = default_value_from_dd
             
             field = ProductTypeField(
                 product_type_id=product_type.id,
@@ -133,12 +157,20 @@ class TemplateService:
                 order_index=template_info["order_index"],
                 required=prev_settings.get('required', False),
                 selected_value=prev_settings.get('selected_value'),
-                custom_value=prev_settings.get('custom_value')
+                custom_value=custom_value
             )
             self.db.add(field)
             self.db.flush()
             field_name_to_db[field_name] = field
             fields_imported += 1
+            
+            other_values_from_dd = dd_info.get("other_values", [])
+            for ov in other_values_from_dd:
+                field_value = ProductTypeFieldValue(
+                    product_type_field_id=field.id,
+                    value=ov["value"]
+                )
+                self.db.add(field_value)
         
         self.db.commit()
         
