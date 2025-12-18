@@ -95,6 +95,8 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
     )
 
 
+from datetime import datetime
+
 def build_export_data(request: ExportPreviewRequest, db: Session):
     """Build export data (headers and rows) for the given models."""
     if not request.model_ids:
@@ -139,6 +141,15 @@ def build_export_data(request: ExportPreviewRequest, db: Session):
     
     equipment_type = db.query(EquipmentType).filter(EquipmentType.id == equipment_type_id).first()
     
+    first_model = models[0]
+    first_series = db.query(Series).filter(Series.id == first_model.series_id).first()
+    first_manufacturer = db.query(Manufacturer).filter(Manufacturer.id == first_series.manufacturer_id).first() if first_series else None
+    
+    mfr_name = normalize_for_url(first_manufacturer.name) if first_manufacturer else 'Unknown'
+    series_name = normalize_for_url(first_series.name) if first_series else 'Unknown'
+    date_str = datetime.now().strftime('%Y%m%d')
+    filename_base = f"Amazon_{mfr_name}_{series_name}_{date_str}"
+    
     data_rows = []
     for model in models:
         series = db.query(Series).filter(Series.id == model.series_id).first()
@@ -151,13 +162,13 @@ def build_export_data(request: ExportPreviewRequest, db: Session):
         
         data_rows.append(row_data)
     
-    return header_rows, data_rows, product_type.code
+    return header_rows, data_rows, filename_base
 
 
 @router.post("/download/xlsx")
 def download_xlsx(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     """Download export as XLSX file."""
-    header_rows, data_rows, template_code = build_export_data(request, db)
+    header_rows, data_rows, filename_base = build_export_data(request, db)
     
     wb = Workbook()
     ws = wb.active
@@ -203,7 +214,7 @@ def download_xlsx(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     wb.save(output)
     output.seek(0)
     
-    filename = f"amazon_export_{template_code}.xlsx"
+    filename = f"{filename_base}.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -214,7 +225,7 @@ def download_xlsx(request: ExportPreviewRequest, db: Session = Depends(get_db)):
 @router.post("/download/xlsm")
 def download_xlsm(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     """Download export as XLSM file (macro-enabled workbook)."""
-    header_rows, data_rows, template_code = build_export_data(request, db)
+    header_rows, data_rows, filename_base = build_export_data(request, db)
     
     wb = Workbook()
     ws = wb.active
@@ -260,7 +271,7 @@ def download_xlsm(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     wb.save(output)
     output.seek(0)
     
-    filename = f"amazon_export_{template_code}.xlsm"
+    filename = f"{filename_base}.xlsm"
     return StreamingResponse(
         output,
         media_type="application/vnd.ms-excel.sheet.macroEnabled.12",
@@ -271,7 +282,7 @@ def download_xlsm(request: ExportPreviewRequest, db: Session = Depends(get_db)):
 @router.post("/download/csv")
 def download_csv(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     """Download export as CSV file."""
-    header_rows, data_rows, template_code = build_export_data(request, db)
+    header_rows, data_rows, filename_base = build_export_data(request, db)
     
     output = io.StringIO()
     writer = csv.writer(output)
@@ -284,7 +295,7 @@ def download_csv(request: ExportPreviewRequest, db: Session = Depends(get_db)):
     
     content = output.getvalue().encode('utf-8')
     
-    filename = f"amazon_export_{template_code}.csv"
+    filename = f"{filename_base}.csv"
     return StreamingResponse(
         iter([content]),
         media_type="text/csv",

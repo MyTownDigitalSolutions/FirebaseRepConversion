@@ -149,28 +149,29 @@ export default function ExportPage() {
       setDownloading(format)
       const modelIds = Array.from(selectedModels)
       let response
-      let filename: string
-      let mimeType: string
 
       switch (format) {
         case 'xlsx':
           response = await exportApi.downloadXlsx(modelIds, listingType)
-          filename = `amazon_export_${previewData?.template_code || 'export'}.xlsx`
-          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
           break
         case 'xlsm':
           response = await exportApi.downloadXlsm(modelIds, listingType)
-          filename = `amazon_export_${previewData?.template_code || 'export'}.xlsm`
-          mimeType = 'application/vnd.ms-excel.sheet.macroEnabled.12'
           break
         case 'csv':
           response = await exportApi.downloadCsv(modelIds, listingType)
-          filename = `amazon_export_${previewData?.template_code || 'export'}.csv`
-          mimeType = 'text/csv'
           break
       }
 
-      const blob = new Blob([response.data], { type: mimeType })
+      const contentDisposition = response.headers['content-disposition']
+      let filename = `Amazon_export.${format}`
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename=([^;]+)/)
+        if (match) {
+          filename = match[1].replace(/"/g, '')
+        }
+      }
+
+      const blob = new Blob([response.data])
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
