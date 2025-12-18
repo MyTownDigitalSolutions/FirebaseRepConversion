@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -88,37 +89,82 @@ def generate_export_preview(request: ExportPreviewRequest, db: Session = Depends
         template_code=product_type.code
     )
 
-def substitute_placeholders(value: str, model: Model, series, manufacturer, equipment_type) -> str:
+IMAGE_FIELD_TO_NUMBER = {
+    'main_product_image_locator': '001',
+    'other_product_image_locator_1': '002',
+    'other_product_image_locator_2': '003',
+    'other_product_image_locator_3': '004',
+    'other_product_image_locator_4': '005',
+    'other_product_image_locator_5': '006',
+    'other_product_image_locator_6': '007',
+    'other_product_image_locator_7': '008',
+    'other_product_image_locator_8': '009',
+    'swatch_product_image_locator': '010',
+}
+
+def normalize_for_url(name: str) -> str:
+    """Normalize a name for use in URL paths/filenames.
+    Removes spaces, special characters, and non-alphanumeric characters.
+    Example: "Fender USA" -> "FenderUSA", "Tone-Master" -> "ToneMaster"
+    """
+    if not name:
+        return ''
+    result = re.sub(r'[^a-zA-Z0-9]', '', name)
+    return result
+
+def substitute_placeholders(value: str, model: Model, series, manufacturer, equipment_type, is_image_url: bool = False) -> str:
     result = value
-    # Support both uppercase and mixed-case placeholder formats
     mfr_name = manufacturer.name if manufacturer else ''
     series_name = series.name if series else ''
     model_name = model.name if model else ''
     equip_type = equipment_type.name if equipment_type else ''
     
-    # Uppercase format (from imported templates)
-    result = result.replace('[MANUFACTURER_NAME]', mfr_name)
-    result = result.replace('[SERIES_NAME]', series_name)
-    result = result.replace('[MODEL_NAME]', model_name)
-    result = result.replace('[EQUIPMENT_TYPE]', equip_type)
+    if is_image_url:
+        mfr_name_norm = normalize_for_url(mfr_name)
+        series_name_norm = normalize_for_url(series_name)
+        model_name_norm = normalize_for_url(model_name)
+        
+        result = result.replace('[Manufacturer_Name]', mfr_name_norm)
+        result = result.replace('[Series_Name]', series_name_norm)
+        result = result.replace('[Model_Name]', model_name_norm)
+        result = result.replace('[MANUFACTURER_NAME]', mfr_name_norm)
+        result = result.replace('[SERIES_NAME]', series_name_norm)
+        result = result.replace('[MODEL_NAME]', model_name_norm)
+    else:
+        result = result.replace('[MANUFACTURER_NAME]', mfr_name)
+        result = result.replace('[SERIES_NAME]', series_name)
+        result = result.replace('[MODEL_NAME]', model_name)
+        result = result.replace('[Manufacturer_Name]', mfr_name)
+        result = result.replace('[Series_Name]', series_name)
+        result = result.replace('[Model_Name]', model_name)
     
-    # Mixed-case format (legacy support)
-    result = result.replace('[Manufacturer_Name]', mfr_name)
-    result = result.replace('[Series_Name]', series_name)
-    result = result.replace('[Model_Name]', model_name)
+    result = result.replace('[EQUIPMENT_TYPE]', equip_type)
     result = result.replace('[Equipment_Type]', equip_type)
     
     return result
 
+def get_image_field_key(field_name: str) -> str | None:
+    """Extract the base image field key from a full Amazon field name.
+    Returns the key if it matches a known product image field, None otherwise.
+    """
+    for key in IMAGE_FIELD_TO_NUMBER.keys():
+        if field_name.startswith(key):
+            return key
+    return None
+
+def is_image_url_field(field_name: str) -> bool:
+    """Check if a field is a product image URL field that needs special processing."""
+    return get_image_field_key(field_name) is not None
+
 def get_field_value(field: ProductTypeField, model: Model, series, manufacturer, equipment_type=None, listing_type: str = "individual") -> str | None:
     field_name_lower = field.field_name.lower()
+    is_image_field = is_image_url_field(field.field_name)
     
-    # Handle contribution_sku for individual listings - use parent_sku
     if 'contribution_sku' in field_name_lower and listing_type == 'individual':
         return model.parent_sku if model.parent_sku else None
     
     if field.custom_value:
-        return substitute_placeholders(field.custom_value, model, series, manufacturer, equipment_type)
+        return substitute_placeholders(field.custom_value, model, series, manufacturer, equipment_type, is_image_url=is_image_field)
     
     if field.selected_value:
         return field.selected_value
