@@ -13,28 +13,24 @@ class TemplateService:
         """
         Import Amazon template with this EXACT logic:
         
-        STEP 1: Parse DATA DEFINITIONS sheet
-        - Row 2 = Headers (Group Name, Field Name, Local Label Name, ...)
-        - Row 3+: When Column A has value and Column B is empty = GROUP NAME
-        - Following rows: Column A empty, Column B = Field Name, Column C = Local Label Name
-        - This gives us the mapping of groups -> fields -> local labels
+        STEP 1: DATA DEFINITIONS sheet - ONLY get:
+          - Group names (Column A when Column B is empty)
+          - Field names (Column B)
+          - Local Label names (Column C)
+          - Column D is just descriptions, NOT valid values!
         
-        STEP 2: Parse VALID VALUES sheet
-        - Column A = Group names (when present, marks new group)
-        - Column B = "Local Label Name - [ FIELD_HINT ]" format
-        - Column C onwards = Valid values user can select from
-        - Match to Data Definitions by local label name
+        STEP 2: VALID VALUES sheet - Get selectable options:
+          - Column A = Group name (when Column B empty)
+          - Column B = "Local Label - [field_hint]" format
+          - Column C onwards = The actual valid values users can select
         
-        STEP 3: Parse DEFAULT VALUES sheet
-        - Row 1 = Headers
-        - Column A = Local Label Name
-        - Column B = Field Name  
-        - Column C = Default Value (what should be pre-selected)
-        - Column D+ = "Other Value" - additional values to ADD to valid values
+        STEP 3: DEFAULT VALUES sheet - Get defaults and additional values:
+          - Column A = Local Label Name
+          - Column B = Field Name
+          - Column C = Default value to pre-select
+          - Column D onwards = Additional values to ADD to valid values
         
-        STEP 4: Parse TEMPLATE sheet
-        - Get field order for export
-        - Get display names from row 4
+        STEP 4: TEMPLATE sheet - Get field order for export
         """
         contents = await file.read()
         excel_file = BytesIO(contents)
@@ -86,6 +82,10 @@ class TemplateService:
         field_definitions = {}
         local_label_to_field = {}
         
+        print("=" * 60)
+        print("STEP 1: Parsing DATA DEFINITIONS sheet")
+        print("=" * 60)
+        
         try:
             dd_df = pd.read_excel(excel_file, sheet_name="Data Definitions", header=None)
             excel_file.seek(0)
@@ -101,7 +101,7 @@ class TemplateService:
                 
                 if col_a and not col_b:
                     current_group = col_a
-                    print(f"[DD] Group: {current_group}")
+                    print(f"  GROUP: {current_group}")
                     continue
                 
                 if col_b:
@@ -110,21 +110,24 @@ class TemplateService:
                     
                     field_definitions[field_name] = {
                         "group_name": current_group,
-                        "local_label": local_label,
-                        "valid_values": [],
-                        "default_value": None,
-                        "other_values": []
+                        "local_label": local_label
                     }
                     
                     if local_label:
                         local_label_to_field[local_label] = field_name
                     
-                    print(f"[DD]   Field: {field_name[:50]} -> Label: {local_label}")
+                    print(f"    Field: {field_name[:40]}... | Label: {local_label}")
             
-            print(f"[DD] Total fields from Data Definitions: {len(field_definitions)}")
+            print(f"  TOTAL: {len(field_definitions)} fields from Data Definitions")
             
         except Exception as e:
-            print(f"Error parsing Data Definitions sheet: {e}")
+            print(f"  ERROR: {e}")
+        
+        valid_values_by_field = {}
+        
+        print("=" * 60)
+        print("STEP 2: Parsing VALID VALUES sheet")
+        print("=" * 60)
         
         try:
             vv_df = pd.read_excel(excel_file, sheet_name="Valid Values", header=None)
@@ -140,7 +143,7 @@ class TemplateService:
                 
                 if col_a and not col_b:
                     current_vv_group = col_a
-                    print(f"[VV] Group: {current_vv_group}")
+                    print(f"  GROUP: {current_vv_group}")
                     continue
                 
                 if col_b:
@@ -175,9 +178,11 @@ class TemplateService:
                                 break
                     
                     if matched_field:
-                        field_definitions[matched_field]["valid_values"].extend(values)
+                        if matched_field not in valid_values_by_field:
+                            valid_values_by_field[matched_field] = []
+                        valid_values_by_field[matched_field].extend(values)
                         valid_values_imported += len(values)
-                        print(f"[VV]   Matched '{local_label_part}' to field, {len(values)} values")
+                        print(f"    Matched '{local_label_part}' -> {len(values)} values")
                         
                         if local_label_part == "Item Type Keyword":
                             for value in values:
@@ -188,13 +193,20 @@ class TemplateService:
                                 self.db.add(kw)
                                 keywords_imported += 1
                     else:
-                        print(f"[VV]   No match for: {local_label_part}")
+                        print(f"    NO MATCH: {local_label_part}")
             
             self.db.commit()
-            print(f"[VV] Valid values imported: {valid_values_imported}")
+            print(f"  TOTAL: {valid_values_imported} valid values")
             
         except Exception as e:
-            print(f"Error parsing Valid Values sheet: {e}")
+            print(f"  ERROR: {e}")
+        
+        default_values_by_field = {}
+        other_values_by_field = {}
+        
+        print("=" * 60)
+        print("STEP 3: Parsing DEFAULT VALUES sheet")
+        print("=" * 60)
         
         try:
             dv_df = pd.read_excel(excel_file, sheet_name="Default Values", header=None)
@@ -225,23 +237,27 @@ class TemplateService:
                 
                 if matched_field:
                     if col_c_default:
-                        field_definitions[matched_field]["default_value"] = col_c_default
-                        print(f"[DV]   Default for '{matched_field[:40]}': {col_c_default[:30]}")
+                        default_values_by_field[matched_field] = col_c_default
+                        print(f"    Default: {col_a_local_label} = {col_c_default[:30]}...")
                     
                     other_values = [str(v).strip() for v in row.iloc[3:] if pd.notna(v)]
                     if other_values:
-                        existing_vals = field_definitions[matched_field]["valid_values"]
-                        for ov in other_values:
-                            if ov not in existing_vals:
-                                field_definitions[matched_field]["other_values"].append(ov)
-                        print(f"[DV]   Other values for '{matched_field[:40]}': {len(other_values)}")
+                        if matched_field not in other_values_by_field:
+                            other_values_by_field[matched_field] = []
+                        other_values_by_field[matched_field].extend(other_values)
+                        print(f"    Other values: {col_a_local_label} +{len(other_values)}")
             
-            print(f"[DV] Default values processed")
+            print(f"  TOTAL: {len(default_values_by_field)} defaults, {len(other_values_by_field)} with other values")
             
         except Exception as e:
-            print(f"Default Values sheet not found or error: {e}")
+            print(f"  Default Values sheet: {e}")
         
         template_field_order = {}
+        
+        print("=" * 60)
+        print("STEP 4: Parsing TEMPLATE sheet")
+        print("=" * 60)
+        
         try:
             template_df = pd.read_excel(excel_file, sheet_name="Template", header=None)
             excel_file.seek(0)
@@ -282,10 +298,14 @@ class TemplateService:
                 }
             
             self.db.commit()
-            print(f"[Template] Fields in template: {len(template_field_order)}")
+            print(f"  TOTAL: {len(template_field_order)} fields in template")
             
         except Exception as e:
-            print(f"Error parsing Template sheet: {e}")
+            print(f"  ERROR: {e}")
+        
+        print("=" * 60)
+        print("STEP 5: Creating database records")
+        print("=" * 60)
         
         field_name_to_db = {}
         
@@ -295,7 +315,7 @@ class TemplateService:
             group_name = dd_info.get("group_name") or template_info.get("group_from_template")
             local_label = dd_info.get("local_label")
             display_name = template_info.get("display_name") or local_label
-            default_value = dd_info.get("default_value")
+            default_value = default_values_by_field.get(field_name)
             
             prev_settings = existing_field_settings.get(field_name, {})
             
@@ -318,20 +338,27 @@ class TemplateService:
             field_name_to_db[field_name] = field
             fields_imported += 1
             
-            all_values = dd_info.get("valid_values", []) + dd_info.get("other_values", [])
-            seen_values = set()
+            all_values = []
+            if field_name in valid_values_by_field:
+                all_values.extend(valid_values_by_field[field_name])
+            if field_name in other_values_by_field:
+                for ov in other_values_by_field[field_name]:
+                    if ov not in all_values:
+                        all_values.append(ov)
+            
             for value in all_values:
-                if value not in seen_values:
-                    seen_values.add(value)
-                    field_value = ProductTypeFieldValue(
-                        product_type_field_id=field.id,
-                        value=value
-                    )
-                    self.db.add(field_value)
+                field_value = ProductTypeFieldValue(
+                    product_type_field_id=field.id,
+                    value=value
+                )
+                self.db.add(field_value)
         
         self.db.commit()
         
-        print(f"[DONE] Import complete: {fields_imported} fields, {keywords_imported} keywords, {valid_values_imported} valid values")
+        print(f"  Created {fields_imported} fields")
+        print("=" * 60)
+        print(f"DONE: {fields_imported} fields, {keywords_imported} keywords, {valid_values_imported} valid values")
+        print("=" * 60)
         
         return {
             "product_code": product_code,
