@@ -4,18 +4,15 @@
   packages = [
     pkgs.nodejs_20
     pkgs.nodePackages.npm
-    pkgs.python311
-    pkgs.uv
+    pkgs.psmisc  # gives us fuser reliably
   ];
 
   env = {
-    VITE_API_URL = "http://localhost:8000";
     NEXT_PUBLIC_USE_FIREBASE_EMULATORS = "false";
   };
 
   idx.workspace.onCreate = {
-    install-fe = "cd client && npm install";
-    install-be = "uv sync";
+    install-fe = "cd client && (test -f package-lock.json && npm ci || npm install)";
   };
 
   idx.previews = {
@@ -23,27 +20,37 @@
 
     previews = {
       web = {
-  manager = "web";
-  cwd = ".";
-  command = [
-    "bash"
-    "-lc"
-    "cd client && npm install && npm run dev -- --host 0.0.0.0 --port $PORT"
-  ];
-};
-
-
-      api = {
         manager = "web";
-        cwd = ".";
+        cwd = "client";
         command = [
           "bash"
           "-lc"
-          "uv sync && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+          ''
+            set -euo pipefail
+            echo "[web] Forcing Vite to port 9002 (Firebase Studio preview port)"
+
+            # Kill anything holding 9002 (backend/old preview/etc.)
+            fuser -k 9002/tcp || true
+
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi
+
+            # Force Vite to the one port Preview will route to
+            exec npx vite --host 0.0.0.0 --port 9002 --strictPort
+          ''
         ];
       };
     };
   };
 }
+
+
+
+
+
+
 
 
