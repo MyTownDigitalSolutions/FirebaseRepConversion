@@ -56,6 +56,8 @@ This application helps manage:
 - `GET/POST /series` - Manage product series
 - `GET/POST/PUT/DELETE /equipment-types` - Manage equipment types
 - `GET/PUT /equipment-types/{id}/pricing-options` - Manage pricing options assigned to equipment types
+- `GET/PUT /equipment-types/{id}/design-options` - Manage design options assigned to equipment types
+- `GET/POST/PUT/DELETE /design-options` - Manage design options (design features)
 - `GET/POST /models` - Manage equipment models
 - `GET/POST /materials` - Manage materials
 - `GET/POST /suppliers` - Manage suppliers
@@ -95,7 +97,13 @@ This application helps manage:
    - Create, edit, and delete pricing options through the Pricing Options page
    - Assign specific pricing options to equipment types via the Equipment Types page
    - Junction table `equipment_type_pricing_options` manages many-to-many relationship
-   - Equipment types have design flags (`uses_handle_options`, `uses_angle_options`) separate from pricing options
+
+5. **Dynamic Design Options System**:
+   - Design options define product design features (e.g., Handle Options, Angle Options)
+   - Create, edit, and delete design options through the Design Options page
+   - Assign specific design options to equipment types via the Equipment Types page
+   - Junction table `equipment_type_design_options` manages many-to-many relationship
+   - Default design options: "Handle Options" (for handle location selection), "Angle Options" (for angle/curve type selection)
 
 ## Development
 
@@ -111,6 +119,7 @@ SQLite database with the following main tables:
 - suppliers, supplier_materials
 - customers, orders, order_lines
 - pricing_options, shipping_rates, equipment_type_pricing_options (junction table)
+- design_options, equipment_type_design_options (junction table)
 - amazon_product_types, product_type_fields, product_type_field_values
 
 ## Database Migrations
