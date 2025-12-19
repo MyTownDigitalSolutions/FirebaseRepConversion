@@ -4,7 +4,7 @@ from app.database import engine, Base
 from app.api import (
     manufacturers, series, equipment_types, models,
     materials, suppliers, customers, orders,
-    pricing, templates, enums, export
+    pricing, templates, enums, export, design_options
 )
 
 Base.metadata.create_all(bind=engine)
@@ -35,6 +35,7 @@ app.include_router(pricing.router)
 app.include_router(templates.router)
 app.include_router(enums.router)
 app.include_router(export.router)
+app.include_router(design_options.router)
 
 @app.get("/health")
 def health_check():

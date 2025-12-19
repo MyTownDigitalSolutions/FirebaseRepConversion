@@ -29,12 +29,11 @@ class EquipmentType(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    uses_handle_options = Column(Boolean, default=False)
-    uses_angle_options = Column(Boolean, default=False)
     
     models = relationship("Model", back_populates="equipment_type")
     product_types = relationship("EquipmentTypeProductType", back_populates="equipment_type")
     pricing_options = relationship("EquipmentTypePricingOption", back_populates="equipment_type", cascade="all, delete-orphan")
+    design_options = relationship("EquipmentTypeDesignOption", back_populates="equipment_type", cascade="all, delete-orphan")
 
 class Model(Base):
     __tablename__ = "models"
@@ -174,3 +173,24 @@ class ShippingRate(Base):
     zone = Column(String, nullable=False)
     rate = Column(Float, nullable=False)
     surcharge = Column(Float, default=0.0)
+
+class DesignOption(Base):
+    __tablename__ = "design_options"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(String, nullable=True)
+    
+    equipment_types = relationship("EquipmentTypeDesignOption", back_populates="design_option")
+
+class EquipmentTypeDesignOption(Base):
+    __tablename__ = "equipment_type_design_options"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    equipment_type_id = Column(Integer, ForeignKey("equipment_types.id"), nullable=False)
+    design_option_id = Column(Integer, ForeignKey("design_options.id"), nullable=False)
+    
+    equipment_type = relationship("EquipmentType", back_populates="design_options")
+    design_option = relationship("DesignOption", back_populates="equipment_types")
+    
+    __table_args__ = (UniqueConstraint('equipment_type_id', 'design_option_id', name='uq_equip_type_design_option'),)

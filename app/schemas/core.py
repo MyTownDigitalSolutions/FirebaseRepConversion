@@ -30,8 +30,6 @@ class SeriesResponse(SeriesBase):
 
 class EquipmentTypeBase(BaseModel):
     name: str
-    uses_handle_options: bool = False
-    uses_angle_options: bool = False
 
 class EquipmentTypeCreate(EquipmentTypeBase):
     pass
@@ -224,3 +222,16 @@ class PricingCalculateResponse(BaseModel):
     shipping_cost: float
     unit_total: float
     total: float
+
+class DesignOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class DesignOptionCreate(DesignOptionBase):
+    pass
+
+class DesignOptionResponse(DesignOptionBase):
+    id: int
+    
+    class Config:
+        from_attributes = True

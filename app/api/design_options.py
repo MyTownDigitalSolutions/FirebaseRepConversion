@@ -1,0 +1,59 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from typing import List
+from app.database import get_db
+from app.models.core import DesignOption, EquipmentTypeDesignOption
+from app.schemas.core import DesignOptionCreate, DesignOptionResponse
+
+router = APIRouter(prefix="/design-options", tags=["design-options"])
+
+@router.get("", response_model=List[DesignOptionResponse])
+def list_design_options(db: Session = Depends(get_db)):
+    return db.query(DesignOption).all()
+
+@router.get("/{id}", response_model=DesignOptionResponse)
+def get_design_option(id: int, db: Session = Depends(get_db)):
+    option = db.query(DesignOption).filter(DesignOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Design option not found")
+    return option
+
+@router.post("", response_model=DesignOptionResponse)
+def create_design_option(data: DesignOptionCreate, db: Session = Depends(get_db)):
+    try:
+        option = DesignOption(name=data.name, description=data.description)
+        db.add(option)
+        db.commit()
+        db.refresh(option)
+        return option
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Design option with this name already exists")
+
+@router.put("/{id}", response_model=DesignOptionResponse)
+def update_design_option(id: int, data: DesignOptionCreate, db: Session = Depends(get_db)):
+    option = db.query(DesignOption).filter(DesignOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Design option not found")
+    try:
+        option.name = data.name
+        option.description = data.description
+        db.commit()
+        db.refresh(option)
+        return option
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Design option with this name already exists")
+
+@router.delete("/{id}")
+def delete_design_option(id: int, db: Session = Depends(get_db)):
+    option = db.query(DesignOption).filter(DesignOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Design option not found")
+    db.query(EquipmentTypeDesignOption).filter(
+        EquipmentTypeDesignOption.design_option_id == id
+    ).delete()
+    db.delete(option)
+    db.commit()
+    return {"message": "Design option deleted"}
