@@ -29,6 +29,8 @@ export const equipmentTypesApi = {
   create: (data: Partial<EquipmentType>) => api.post<EquipmentType>('/equipment-types', data).then(r => r.data),
   update: (id: number, data: Partial<EquipmentType>) => api.put<EquipmentType>(`/equipment-types/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/equipment-types/${id}`),
+  getPricingOptions: (id: number) => api.get<PricingOption[]>(`/equipment-types/${id}/pricing-options`).then(r => r.data),
+  setPricingOptions: (id: number, pricingOptionIds: number[]) => api.put(`/equipment-types/${id}/pricing-options`, { pricing_option_ids: pricingOptionIds }).then(r => r.data),
 }
 
 export const modelsApi = {
@@ -75,6 +77,11 @@ export const pricingApi = {
     zone?: string
   }) => api.post<PricingResult>('/pricing/calculate', data).then(r => r.data),
   listOptions: () => api.get<PricingOption[]>('/pricing/options').then(r => r.data),
+  getOption: (id: number) => api.get<PricingOption>(`/pricing/options/${id}`).then(r => r.data),
+  createOption: (data: { name: string; price: number }) => api.post<PricingOption>('/pricing/options', data).then(r => r.data),
+  updateOption: (id: number, data: { name: string; price: number }) => api.put<PricingOption>(`/pricing/options/${id}`, data).then(r => r.data),
+  deleteOption: (id: number) => api.delete(`/pricing/options/${id}`),
+  getOptionsByEquipmentType: (equipmentTypeId: number) => api.get<PricingOption[]>(`/pricing/options/by-equipment-type/${equipmentTypeId}`).then(r => r.data),
 }
 
 export interface EquipmentTypeProductTypeLink {

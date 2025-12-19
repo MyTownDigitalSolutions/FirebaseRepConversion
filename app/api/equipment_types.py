@@ -2,11 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List
+from pydantic import BaseModel
 from app.database import get_db
-from app.models.core import EquipmentType
-from app.schemas.core import EquipmentTypeCreate, EquipmentTypeResponse
+from app.models.core import EquipmentType, EquipmentTypePricingOption, PricingOption
+from app.schemas.core import EquipmentTypeCreate, EquipmentTypeResponse, PricingOptionResponse
 
 router = APIRouter(prefix="/equipment-types", tags=["equipment-types"])
+
+class PricingOptionAssignment(BaseModel):
+    pricing_option_ids: List[int]
 
 @router.get("", response_model=List[EquipmentTypeResponse])
 def list_equipment_types(db: Session = Depends(get_db)):
@@ -59,3 +63,51 @@ def delete_equipment_type(id: int, db: Session = Depends(get_db)):
     db.delete(equipment_type)
     db.commit()
     return {"message": "Equipment type deleted"}
+
+@router.get("/{id}/pricing-options", response_model=List[PricingOptionResponse])
+def get_equipment_type_pricing_options(id: int, db: Session = Depends(get_db)):
+    """Get all pricing options assigned to an equipment type."""
+    equipment_type = db.query(EquipmentType).filter(EquipmentType.id == id).first()
+    if not equipment_type:
+        raise HTTPException(status_code=404, detail="Equipment type not found")
+    
+    assignments = db.query(EquipmentTypePricingOption).filter(
+        EquipmentTypePricingOption.equipment_type_id == id
+    ).all()
+    
+    option_ids = [a.pricing_option_id for a in assignments]
+    if not option_ids:
+        return []
+    
+    return db.query(PricingOption).filter(PricingOption.id.in_(option_ids)).all()
+
+@router.put("/{id}/pricing-options")
+def set_equipment_type_pricing_options(id: int, data: PricingOptionAssignment, db: Session = Depends(get_db)):
+    """Set the pricing options for an equipment type (replaces existing assignments)."""
+    equipment_type = db.query(EquipmentType).filter(EquipmentType.id == id).first()
+    if not equipment_type:
+        raise HTTPException(status_code=404, detail="Equipment type not found")
+    
+    for option_id in data.pricing_option_ids:
+        option = db.query(PricingOption).filter(PricingOption.id == option_id).first()
+        if not option:
+            raise HTTPException(status_code=404, detail=f"Pricing option {option_id} not found")
+    
+    try:
+        db.query(EquipmentTypePricingOption).filter(
+            EquipmentTypePricingOption.equipment_type_id == id
+        ).delete()
+        
+        for option_id in data.pricing_option_ids:
+            assignment = EquipmentTypePricingOption(
+                equipment_type_id=id,
+                pricing_option_id=option_id
+            )
+            db.add(assignment)
+        
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update pricing options: {str(e)}")
+    
+    return {"message": "Pricing options updated"}

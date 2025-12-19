@@ -34,6 +34,7 @@ class EquipmentType(Base):
     
     models = relationship("Model", back_populates="equipment_type")
     product_types = relationship("EquipmentTypeProductType", back_populates="equipment_type")
+    pricing_options = relationship("EquipmentTypePricingOption", back_populates="equipment_type", cascade="all, delete-orphan")
 
 class Model(Base):
     __tablename__ = "models"
@@ -148,6 +149,20 @@ class PricingOption(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     price = Column(Float, nullable=False)
+    
+    equipment_types = relationship("EquipmentTypePricingOption", back_populates="pricing_option")
+
+class EquipmentTypePricingOption(Base):
+    __tablename__ = "equipment_type_pricing_options"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    equipment_type_id = Column(Integer, ForeignKey("equipment_types.id"), nullable=False)
+    pricing_option_id = Column(Integer, ForeignKey("pricing_options.id"), nullable=False)
+    
+    equipment_type = relationship("EquipmentType", back_populates="pricing_options")
+    pricing_option = relationship("PricingOption", back_populates="equipment_types")
+    
+    __table_args__ = (UniqueConstraint('equipment_type_id', 'pricing_option_id', name='uq_equip_type_pricing_option'),)
 
 class ShippingRate(Base):
     __tablename__ = "shipping_rates"

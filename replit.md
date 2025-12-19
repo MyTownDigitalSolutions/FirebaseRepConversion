@@ -54,13 +54,16 @@ This application helps manage:
 - `GET /health` - Health check
 - `GET/POST /manufacturers` - Manage manufacturers
 - `GET/POST /series` - Manage product series
-- `GET/POST /equipment-types` - Manage equipment types
+- `GET/POST/PUT/DELETE /equipment-types` - Manage equipment types
+- `GET/PUT /equipment-types/{id}/pricing-options` - Manage pricing options assigned to equipment types
 - `GET/POST /models` - Manage equipment models
 - `GET/POST /materials` - Manage materials
 - `GET/POST /suppliers` - Manage suppliers
 - `GET/POST /customers` - Manage customers
 - `GET/POST /orders` - Manage orders
 - `POST /pricing/calculate` - Calculate cover pricing
+- `GET/POST/PUT/DELETE /pricing/options` - Manage pricing options (add-on features)
+- `GET /pricing/options/by-equipment-type/{id}` - Get pricing options for equipment type
 - `POST /templates/import` - Import Amazon template
 - `GET /templates` - List imported templates
 - `GET /enums/*` - Get enum values
@@ -87,6 +90,13 @@ This application helps manage:
    - Example: `FENDERXX-TONEMAST-SUPERREVERBXXV10000000`
    - Endpoint `POST /models/regenerate-skus` to backfill existing models
 
+4. **Dynamic Pricing Options System**:
+   - Pricing options are add-on features (e.g., Handle Zipper, Two-in-One Pocket, Music Rest Zipper)
+   - Create, edit, and delete pricing options through the Pricing Options page
+   - Assign specific pricing options to equipment types via the Equipment Types page
+   - Junction table `equipment_type_pricing_options` manages many-to-many relationship
+   - Equipment types have design flags (`uses_handle_options`, `uses_angle_options`) separate from pricing options
+
 ## Development
 
 The application runs on:
@@ -100,7 +110,7 @@ SQLite database with the following main tables:
 - materials, material_colour_surcharges
 - suppliers, supplier_materials
 - customers, orders, order_lines
-- pricing_options, shipping_rates
+- pricing_options, shipping_rates, equipment_type_pricing_options (junction table)
 - amazon_product_types, product_type_fields, product_type_field_values
 
 ## Database Migrations

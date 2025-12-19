@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List
 from app.database import get_db
-from app.models.core import PricingOption, ShippingRate
+from app.models.core import PricingOption, ShippingRate, EquipmentType, EquipmentTypePricingOption
 from app.schemas.core import (
     PricingOptionCreate, PricingOptionResponse,
     ShippingRateCreate, ShippingRateResponse,
@@ -35,13 +36,65 @@ def calculate_pricing(data: PricingCalculateRequest, db: Session = Depends(get_d
 def list_pricing_options(db: Session = Depends(get_db)):
     return db.query(PricingOption).all()
 
+@router.get("/options/{id}", response_model=PricingOptionResponse)
+def get_pricing_option(id: int, db: Session = Depends(get_db)):
+    option = db.query(PricingOption).filter(PricingOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Pricing option not found")
+    return option
+
 @router.post("/options", response_model=PricingOptionResponse)
 def create_pricing_option(data: PricingOptionCreate, db: Session = Depends(get_db)):
-    option = PricingOption(name=data.name, price=data.price)
-    db.add(option)
+    try:
+        option = PricingOption(name=data.name, price=data.price)
+        db.add(option)
+        db.commit()
+        db.refresh(option)
+        return option
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Pricing option with this name already exists")
+
+@router.put("/options/{id}", response_model=PricingOptionResponse)
+def update_pricing_option(id: int, data: PricingOptionCreate, db: Session = Depends(get_db)):
+    option = db.query(PricingOption).filter(PricingOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Pricing option not found")
+    try:
+        option.name = data.name
+        option.price = data.price
+        db.commit()
+        db.refresh(option)
+        return option
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Pricing option with this name already exists")
+
+@router.delete("/options/{id}")
+def delete_pricing_option(id: int, db: Session = Depends(get_db)):
+    option = db.query(PricingOption).filter(PricingOption.id == id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Pricing option not found")
+    db.delete(option)
     db.commit()
-    db.refresh(option)
-    return option
+    return {"message": "Pricing option deleted"}
+
+@router.get("/options/by-equipment-type/{equipment_type_id}", response_model=List[PricingOptionResponse])
+def get_options_for_equipment_type(equipment_type_id: int, db: Session = Depends(get_db)):
+    """Get all pricing options assigned to a specific equipment type."""
+    equipment_type = db.query(EquipmentType).filter(EquipmentType.id == equipment_type_id).first()
+    if not equipment_type:
+        raise HTTPException(status_code=404, detail="Equipment type not found")
+    
+    option_ids = db.query(EquipmentTypePricingOption.pricing_option_id).filter(
+        EquipmentTypePricingOption.equipment_type_id == equipment_type_id
+    ).all()
+    option_ids = [o[0] for o in option_ids]
+    
+    if not option_ids:
+        return []
+    
+    return db.query(PricingOption).filter(PricingOption.id.in_(option_ids)).all()
 
 @router.get("/shipping-rates", response_model=List[ShippingRateResponse])
 def list_shipping_rates(db: Session = Depends(get_db)):

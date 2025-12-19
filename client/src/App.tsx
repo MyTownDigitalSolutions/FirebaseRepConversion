@@ -6,6 +6,7 @@ import ManufacturersPage from './pages/ManufacturersPage'
 import ModelsPage from './pages/ModelsPage'
 import MaterialsPage from './pages/MaterialsPage'
 import EquipmentTypesPage from './pages/EquipmentTypesPage'
+import PricingOptionsPage from './pages/PricingOptionsPage'
 import CustomersPage from './pages/CustomersPage'
 import OrdersPage from './pages/OrdersPage'
 import PricingCalculator from './pages/PricingCalculator'
@@ -22,6 +23,7 @@ function App() {
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/materials" element={<MaterialsPage />} />
           <Route path="/equipment-types" element={<EquipmentTypesPage />} />
+          <Route path="/pricing-options" element={<PricingOptionsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/pricing" element={<PricingCalculator />} />
