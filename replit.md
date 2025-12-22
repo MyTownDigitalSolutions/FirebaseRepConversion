@@ -15,7 +15,7 @@ This application helps manage:
 
 ### Backend
 - **Framework**: Python 3.11 + FastAPI
-- **Database**: SQLite with SQLAlchemy ORM
+- **Database**: FastAPI with Supabase
 - **Migrations**: Alembic
 - **Validation**: Pydantic
 - **Excel Parsing**: Pandas + OpenPyXL
